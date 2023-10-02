@@ -11,6 +11,25 @@
         }
     ],
     "objects": {
+        "ifcViewerSettings":{
+            "displayName": "IFC Viewer Settings",
+            "properties": {
+                "baseUrl":{
+                    "displayName": "Base Model Fragment Service",
+                    "description": "Base Model Fragment Service",
+                    "type": {
+                        "text": true
+                    }
+                },
+                "modelName":{
+                    "displayName": "Model Name",
+                    "description": "Model Name",
+                    "type": {
+                        "text": true
+                    }
+                }
+            }
+        },
         "dataPoint": {
             "properties": {
                 "defaultColor": {
@@ -74,6 +93,6 @@
     "privileges": [{
         "name": "WebAccess",
         "essential": true,
-        "parameters": ["http://localhost:3000"]
+        "parameters": ["http://localhost:3000", "https://fonts.gstatic.com", "https://fonts.googleapis.com"]
     }]
 }

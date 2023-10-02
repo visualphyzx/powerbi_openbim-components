@@ -27,10 +27,23 @@
 "use strict";
 
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
-
+import { dataViewObjectsParser } from "powerbi-visuals-utils-dataviewutils";
+import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 import FormattingSettingsCard = formattingSettings.Card;
 import FormattingSettingsSlice = formattingSettings.Slice;
 import FormattingSettingsModel = formattingSettings.Model;
+
+
+/**
+ * IFC Viewer Settings
+ */
+export class IfcViewerSettings {
+    public baseUrl: string = "http://localhost:3000";
+    public modelName: string = "";
+}
+
+
+
 
 /**
  * Data Point Formatting Card
@@ -78,6 +91,9 @@ class DataPointCardSettings extends FormattingSettingsCard {
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     // Create formatting settings model formatting cards
     dataPointCard = new DataPointCardSettings();
-
     cards = [this.dataPointCard];
+}
+
+export class VisualSettings extends DataViewObjectsParser {
+    public ifcViewerSettings: IfcViewerSettings = new IfcViewerSettings();
 }

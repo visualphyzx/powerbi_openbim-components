@@ -16,8 +16,10 @@ import IVisualEventService = powerbi.extensibility.IVisualEventService;
 import * as OBC from 'openbim-components'
 import * as THREE from 'three'
 import "../style/visual.less"
-const baseUrl = "http://localhost:3000";
-const fileId = "CenterConference";
+//const baseUrl = "http://localhost:3000";
+//const fileId = "demo2";
+import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
+import { VisualSettings } from "./settings";
 
 
 export class Visual implements IVisual {
@@ -25,6 +27,10 @@ export class Visual implements IVisual {
     private updateCount: number;
     private visualHost: IVisualHost
     private events: IVisualEventService;
+
+    private visualSettings: VisualSettings;
+    
+
     constructor( options: VisualConstructorOptions ) {
         console.log( 'Visual constructor', options );
         this.target = options.element;
@@ -33,13 +39,35 @@ export class Visual implements IVisual {
         this.events = options.host.eventService;
     }
 
+     //This method is used to populate the formatting options.
+     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
+        const settings: VisualSettings = this.visualSettings || <VisualSettings>VisualSettings.getDefault() as VisualSettings;
+        const instanceEnumeration: VisualObjectInstanceEnumeration = VisualSettings.enumerateObjectInstances(settings, options);
+        //
+        console.log("//////== ENUMERATEOBJECTINSTANCES ==//////");
+        return (instanceEnumeration as VisualObjectInstanceEnumerationObject).instances || [];
+    }
+
     public update( options: VisualUpdateOptions ) {
         this.events.renderingStarted( options );
         if ( options.dataViews === undefined || options.dataViews === null ) {
             return;
         }
+        this.visualSettings = VisualSettings.parse<VisualSettings>(options.dataViews[0]);
+
+        // baseUrl
+        if(this.visualSettings.ifcViewerSettings.baseUrl == null  || this.visualSettings.ifcViewerSettings.baseUrl.trim() == '')
+        {
+            return;
+        }
+        // modelName
+        if(this.visualSettings.ifcViewerSettings.modelName == null  || this.visualSettings.ifcViewerSettings.modelName.trim() == '')
+        {
+            return;
+        }
+
         if ( this.target && document ) {
-            fetch( `${baseUrl}/download/${fileId}frag.gz`, {
+            fetch( `${this.visualSettings.ifcViewerSettings.baseUrl}/download/${this.visualSettings.ifcViewerSettings.modelName}frag.gz`, {
                 method: "GET",
                 mode: "cors",
             } )
@@ -57,9 +85,11 @@ export class Visual implements IVisual {
 
     }
 
-    components!: OBC.Components
-    fragmentManager!: OBC.FragmentManager
-    highlighter!: OBC.FragmentHighlighter
+    components!: OBC.Components;
+    fragmentManager!: OBC.FragmentManager;
+    highlighter!: OBC.FragmentHighlighter;
+    lastSelection: any;
+
     private initScene( buffer: Uint8Array ) {
         this.target.style.width = '100%'
         this.target.style.height = '100%'
@@ -94,6 +124,7 @@ export class Visual implements IVisual {
         effects.excludedMeshes.push( gridMesh )
         this.fragmentManager = new OBC.FragmentManager( this.components );
         this.highlighter = new OBC.FragmentHighlighter( this.components, this.fragmentManager );
+        console.log("this.highlighter:", this.highlighter);
         this.loadIfcModel( buffer );
     }
 
@@ -102,7 +133,8 @@ export class Visual implements IVisual {
         this.highlighter.update();
         if ( model.boundingBox ) {
             this.viewSphere = this.getSphereModel( model.boundingBox );
-            this.fitToZoom( this.viewSphere )
+            //this.fitToZoom(this.viewSphere);
+            this.fitToZoom2( model.boundingBox);
         }
         ( this.components.renderer as OBC.PostproductionRenderer ).postproduction.customEffects.outlineEnabled = true;
         // this.highlighter.outlineEnabled = true;
@@ -115,26 +147,23 @@ export class Visual implements IVisual {
 
         this.highlighter.add( 'default', [highlightMaterial] );
         this.highlighter.outlineMaterial.color.set( 0xf0ff7a );
-        let lastSelection;
 
-        const singleSelection: any = {
-            value: true,
-        };
-        async function highlightOnClick( event ) {
-            const result = await this.highlighter.highlight( 'default', singleSelection.value );
-            if ( result ) {
-                lastSelection = {};
-                for ( const fragment of result.fragments ) {
-                    const fragmentID = fragment.id;
-                    lastSelection[fragmentID] = [result.id];
 
-                }
-
-            }
-        }
-        this.target.addEventListener( 'click', ( event ) => highlightOnClick( event ) );
+        this.target.addEventListener( 'click', ( event ) => this.highlightOnClick( event ) );
         // it did not work
     }
+
+    private highlightOnClick = async( event ) => {
+        const result = await this.highlighter.highlight( 'default', true ); // was singleSelection.Value
+        if ( result ) {
+            this.lastSelection = {};
+            for ( const fragment of result.fragments ) {
+                const fragmentID = fragment.id;
+                this.lastSelection[fragmentID] = [result.id];
+            }
+        }
+    }
+
     private getSphereModel( boundingBox: THREE.Box3 ) {
         const { max, min } = boundingBox
         const dir = max.clone().sub( min.clone() ).normalize()
@@ -142,9 +171,15 @@ export class Visual implements IVisual {
         const center = max.clone().add( dir.multiplyScalar( -dis * 0.5 ) )
         return new THREE.Sphere( center, dis * 0.5 )
     }
+    
     private fitToZoom( sphere: THREE.Sphere ) {
-        ( this.components.camera as OBC.SimpleCamera ).controls.fitToSphere( sphere, true )
+        ( this.components.camera as OBC.SimpleCamera ).controls.fitToSphere( sphere, true );
+        //( this.components.camera as OBC.SimpleCamera ).controls
         // it did not work for animate
+    }
+    private fitToZoom2( box: THREE.Box3 ) {
+        ( this.components.camera as OBC.SimpleCamera ).controls.fitToBox ( box, true );
+
     }
     _viewSphere!: THREE.Sphere
     set viewSphere( sphere: THREE.Sphere ) {

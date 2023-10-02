@@ -5,8 +5,8 @@ import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualC
 import DialogConstructorOptions = powerbiVisualsApi.extensibility.visual.DialogConstructorOptions;
 var powerbiKey: any = "powerbi";
 var powerbi: any = window[powerbiKey];
-var openbimComponent: IVisualPlugin = {
-    name: 'openbimComponent',
+var openbimComponent_DEBUG: IVisualPlugin = {
+    name: 'openbimComponent_DEBUG',
     displayName: 'openbimComponent',
     class: 'Visual',
     apiVersion: '5.3.0',
@@ -27,6 +27,6 @@ var openbimComponent: IVisualPlugin = {
 if (typeof powerbi !== "undefined") {
     powerbi.visuals = powerbi.visuals || {};
     powerbi.visuals.plugins = powerbi.visuals.plugins || {};
-    powerbi.visuals.plugins["openbimComponent"] = openbimComponent;
+    powerbi.visuals.plugins["openbimComponent_DEBUG"] = openbimComponent_DEBUG;
 }
-export default openbimComponent;
+export default openbimComponent_DEBUG;
