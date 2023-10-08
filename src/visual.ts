@@ -88,6 +88,7 @@ export class Visual implements IVisual {
     components!: OBC.Components;
     fragmentManager!: OBC.FragmentManager;
     highlighter!: OBC.FragmentHighlighter;
+    modelTree!: OBC.FragmentTree;
     lastSelection: any;
 
     private initScene( buffer: Uint8Array ) {
@@ -96,6 +97,8 @@ export class Visual implements IVisual {
         this.target.style.position = 'relative'
         this.components = new OBC.Components();
 
+        //Any components app needs 4 things to work:
+        //https://github.com/IFCjs/components/blob/main/src/core/SimpleScene/index.html
         this.components.scene = new OBC.SimpleScene( this.components );
         this.components.renderer = new OBC.PostproductionRenderer( this.components, this.target );
         this.components.camera = new OBC.SimpleCamera( this.components );
@@ -117,15 +120,78 @@ export class Visual implements IVisual {
         ambientLight.intensity = 0.5;
         scene.add( ambientLight );
 
+        // Add grid
         const grid = new OBC.SimpleGrid( this.components, new THREE.Color( 0x666666 ) );
         this.components.tools.add( 'grid', grid );
         const gridMesh = grid.get();
         const effects = ( this.components.renderer as OBC.PostproductionRenderer ).postproduction.customEffects;
-        effects.excludedMeshes.push( gridMesh )
+        effects.excludedMeshes.push( gridMesh );
+
+        //spinner
+        //Add as spinner at the center of the scene
+        const spinner = new OBC.Spinner(this.components);
+        this.components.ui.add(spinner);
+
+
+        // Add Clipper
+        //https://github.com/IFCjs/components/blob/main/src/core/SimpleClipper/index.html
+        //const clipper = new OBC.SimpleClipper(this.components, OBC.SimplePlane);
+        //clipper.enabled = true;
+
+        //UIManager
+        //https://github.com/IFCjs/components/blob/main/src/ui/UIManager/index.html
+        const mainToolbar = new OBC.Toolbar(this.components);
+        mainToolbar.name = "Main toolbar";
+        this.components.ui.addToolbar(mainToolbar);
+
         this.fragmentManager = new OBC.FragmentManager( this.components );
-        this.highlighter = new OBC.FragmentHighlighter( this.components, this.fragmentManager );
-        console.log("this.highlighter:", this.highlighter);
-        this.loadIfcModel( buffer );
+        this.highlighter = new OBC.FragmentHighlighter( this.components );
+        //console.log("this.highlighter:", this.highlighter);
+        this.loadIfcModel( buffer )
+        .then((model)=>{
+            this.loadModelTree(model);
+        });
+    }
+
+    //https://github.com/IFCjs/components/blob/main/src/fragments/FragmentTree/index.html
+    //https://www.thecodeforge.io/post/how-to-decompress-gzip-json-files-in-javascript
+    // Load Model Tree
+    private loadModelTree = (model:any)=>{
+        const classifier = new OBC.FragmentClassifier(this.components);
+        let properties;
+        fetch( `${this.visualSettings.ifcViewerSettings.baseUrl}/download/${this.visualSettings.ifcViewerSettings.modelName}.gz`, {
+            method: "GET",
+            mode: "cors",
+        } )
+        .then( res => res.arrayBuffer() )
+        .then( fileZip => {
+            const fileString = pako.inflate( fileZip, { to: 'string' } )
+            console.log(fileString);
+            properties = JSON.parse(fileString);
+
+            model.properties = properties;
+            console.log(1);
+            classifier.byStorey(model);
+            classifier.byEntity(model);
+            console.log(2);
+            this.modelTree = new OBC.FragmentTree(this.components);
+            console.log(3);
+            this.modelTree.init().then(()=>{
+                this.modelTree.update(['storeys', 'entities']);
+                this.modelTree.onSelected.add((filter) => {
+                    this.highlighter.highlightByID('select', filter, true, true);
+                });
+                this.modelTree.onHovered.add((filter) => {
+                    this.highlighter.highlightByID('hover', filter);
+                });
+                const toolbar = new OBC.Toolbar(this.components);
+                toolbar.addChild(this.modelTree.uiElement.get("main"));
+                this.components.ui.addToolbar(toolbar);
+            });
+
+        }).catch( error => {
+            console.log(error);
+        })
     }
 
     private loadIfcModel = async ( buffer: Uint8Array ) => {
@@ -148,9 +214,9 @@ export class Visual implements IVisual {
         this.highlighter.add( 'default', [highlightMaterial] );
         this.highlighter.outlineMaterial.color.set( 0xf0ff7a );
 
-
         this.target.addEventListener( 'click', ( event ) => this.highlightOnClick( event ) );
         // it did not work
+        return model;
     }
 
     private highlightOnClick = async( event ) => {

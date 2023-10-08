@@ -1,6 +1,7 @@
 node_modules
-dist
+node_modules\*
+disp
 .tmp
+.tmp\*
 webpack.statistics.dev.html
-webpack.statistics.prod.html
 webpack.statistics.prod.html
